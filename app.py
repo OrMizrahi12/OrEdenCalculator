@@ -24,7 +24,7 @@ TRANSLATIONS = {
         "data_source": "Data: Yahoo Finance",
         "tab_intrinsic": "1. Intrinsic Value (EPS)",
         "tab_cagr": "2. Scenario Analysis",
-        "tab_financials": "3. Financial Statements", # NEW TAB
+        "tab_financials": "3. Financial Statements",
         "current_price": "Current Price",
         "market_cap": "Market Cap",
         "pe_ratio": "P/E (TTM)",
@@ -63,7 +63,6 @@ TRANSLATIONS = {
         "input_base_rev": "Base Revenue ($B)",
         "input_base_margin": "Base Net Margin (%)",
         "input_base_ni": "Base Net Income ($B)",
-        # NEW TRANSLATIONS FOR FINANCIALS TAB
         "inc_stmt_title": "Income Statement Trends",
         "bs_title": "Balance Sheet: Assets vs. Liabilities",
         "cf_change_title": "Change in Cash Position",
@@ -76,7 +75,10 @@ TRANSLATIONS = {
         "liabilities": "Total Liabilities",
         "cf_op": "Operating",
         "cf_inv": "Investing",
-        "cf_fin": "Financing"
+        "cf_fin": "Financing",
+        "view_type": "View Mode",
+        "view_annual": "Annual (Long Term)",
+        "view_quarterly": "Quarterly (Recent)"
     },
     "he": {
         "title": "💰 לוח מכוונים להערכת שווי",
@@ -87,7 +89,7 @@ TRANSLATIONS = {
         "data_source": "מקור נתונים: Yahoo Finance",
         "tab_intrinsic": "1. ערך פנימי (EPS)",
         "tab_cagr": "2. שווי שוק ותרחישים",
-        "tab_financials": "3. דוחות כספיים", # טאב חדש
+        "tab_financials": "3. דוחות כספיים",
         "current_price": "מחיר נוכחי",
         "market_cap": "שווי שוק",
         "pe_ratio": "מכפיל רווח (TTM)",
@@ -126,7 +128,6 @@ TRANSLATIONS = {
         "input_base_rev": "הכנסה שנתית בסיס ($B)",
         "input_base_margin": "שולי רווח בסיס (%)",
         "input_base_ni": "רווח נקי בסיס ($B)",
-        # תרגומים חדשים לדוחות הכספיים
         "inc_stmt_title": "מגמות דוח רווח והפסד",
         "bs_title": "מאזן: נכסים מול התחייבויות",
         "cf_change_title": "שינוי במזומנים",
@@ -139,7 +140,10 @@ TRANSLATIONS = {
         "liabilities": "סך התחייבויות",
         "cf_op": "פעילות שוטפת",
         "cf_inv": "פעילות השקעה",
-        "cf_fin": "פעילות מימון"
+        "cf_fin": "פעילות מימון",
+        "view_type": "מצב תצוגה",
+        "view_annual": "שנתי (לטווח ארוך)",
+        "view_quarterly": "רבעוני (עדכני להיום)"
     }
 }
 
@@ -193,11 +197,16 @@ def fetch_stock_data(ticker_symbol):
         
         current_price = hist["Close"].iloc[-1]
         info = stock.info
-        financials = stock.financials.T.sort_index(ascending=True)
         
-        # Fetch NEW reports
+        # FETCH ANNUAL (Default)
+        financials = stock.financials.T.sort_index(ascending=True)
         balance_sheet = stock.balance_sheet.T.sort_index(ascending=True)
         cashflow = stock.cashflow.T.sort_index(ascending=True)
+        
+        # FETCH QUARTERLY (For recent data)
+        q_financials = stock.quarterly_financials.T.sort_index(ascending=True)
+        q_balance_sheet = stock.quarterly_balance_sheet.T.sort_index(ascending=True)
+        q_cashflow = stock.quarterly_cashflow.T.sort_index(ascending=True)
         
         hist_rev_cagr = 0
         avg_net_margin = 0
@@ -225,14 +234,22 @@ def fetch_stock_data(ticker_symbol):
             "profit_margins": info.get("profitMargins", 0),
             "shares_outstanding": info.get("sharesOutstanding", 0),
             "market_cap": info.get("marketCap", 0),
-            "financials": financials,
-            "balance_sheet": balance_sheet, # NEW
-            "cashflow": cashflow, # NEW
             "total_revenue_ttm": info.get("totalRevenue", 0),
             "hist_rev_cagr": hist_rev_cagr,
             "avg_net_margin": avg_net_margin,
             "history": hist,
-            "hist_pe_series": hist_pe_series
+            "hist_pe_series": hist_pe_series,
+            # Data Containers
+            "annual": {
+                "financials": financials,
+                "balance_sheet": balance_sheet,
+                "cashflow": cashflow
+            },
+            "quarterly": {
+                "financials": q_financials,
+                "balance_sheet": q_balance_sheet,
+                "cashflow": q_cashflow
+            }
         }
     except: return None
 
@@ -305,7 +322,7 @@ def plot_scenario_cagr(bear, base, bull, title_text):
 # --- NEW PLOTS FOR TAB 3 ---
 
 def plot_income_statement(df, lang):
-    """Line chart for Revenue, Gross, Operating, Net."""
+    """Bar chart (Histogram style) for Revenue, Gross, Operating, Net."""
     if df.empty: return go.Figure()
     fig = go.Figure()
     
@@ -321,11 +338,13 @@ def plot_income_statement(df, lang):
     if 'Net Income' not in df.columns and 'Net Income Common Stockholders' in df.columns:
         metrics[-1] = ('Net Income Common Stockholders', get_text('metric_ni', lang), '#EF553B')
 
+    x_vals = df.index if 'Quarter' not in str(type(df.index)) else df.index.astype(str)
+
     for col, label, color in metrics:
         if col in df.columns:
-            fig.add_trace(go.Scatter(x=df.index.year, y=df[col]/1e9, name=label, line=dict(color=color, width=2)))
+            fig.add_trace(go.Bar(x=x_vals, y=df[col]/1e9, name=label, marker_color=color))
             
-    fig.update_layout(title=get_text('inc_stmt_title', lang), height=400, template="plotly_dark", yaxis_title="Billions ($)")
+    fig.update_layout(title=get_text('inc_stmt_title', lang), height=400, barmode='group', template="plotly_dark", yaxis_title="Billions ($)")
     return fig
 
 def plot_balance_sheet(df, lang):
@@ -336,12 +355,13 @@ def plot_balance_sheet(df, lang):
     liab_col = 'Total Liabilities Net Minority Interest'
     if liab_col not in df.columns: liab_col = 'Total Liabilities' # Fallback
     
-    fig = go.Figure()
+    x_vals = df.index if 'Quarter' not in str(type(df.index)) else df.index.astype(str)
     
+    fig = go.Figure()
     if assets_col in df.columns:
-        fig.add_trace(go.Bar(x=df.index.year, y=df[assets_col]/1e9, name=get_text('assets', lang), marker_color='#636EFA'))
+        fig.add_trace(go.Bar(x=x_vals, y=df[assets_col]/1e9, name=get_text('assets', lang), marker_color='#636EFA'))
     if liab_col in df.columns:
-        fig.add_trace(go.Bar(x=df.index.year, y=df[liab_col]/1e9, name=get_text('liabilities', lang), marker_color='#EF553B'))
+        fig.add_trace(go.Bar(x=x_vals, y=df[liab_col]/1e9, name=get_text('liabilities', lang), marker_color='#EF553B'))
         
     fig.update_layout(title=get_text('bs_title', lang), height=400, barmode='group', template="plotly_dark", yaxis_title="Billions ($)")
     return fig
@@ -350,14 +370,15 @@ def plot_cash_change(df, lang):
     """Bar chart for Changes In Cash."""
     if df.empty: return go.Figure()
     
-    # Find col
     col = None
     for c in ['Changes In Cash', 'Change In Cash']:
         if c in df.columns: col = c; break
         
     if not col: return go.Figure()
     
-    fig = go.Figure(go.Bar(x=df.index.year, y=df[col]/1e9, marker_color='#00CC96'))
+    x_vals = df.index if 'Quarter' not in str(type(df.index)) else df.index.astype(str)
+    
+    fig = go.Figure(go.Bar(x=x_vals, y=df[col]/1e9, marker_color='#00CC96'))
     fig.update_layout(title=get_text('cf_change_title', lang), height=350, template="plotly_dark", yaxis_title="Billions ($)")
     return fig
 
@@ -366,17 +387,17 @@ def plot_cashflow_breakdown(df, lang):
     if df.empty: return go.Figure()
     
     fig = go.Figure()
-    
-    # Mapping
     map_cf = [
         ('Operating Cash Flow', get_text('cf_op', lang), '#636EFA'),
         ('Investing Cash Flow', get_text('cf_inv', lang), '#FFA15A'),
         ('Financing Cash Flow', get_text('cf_fin', lang), '#EF553B')
     ]
     
+    x_vals = df.index if 'Quarter' not in str(type(df.index)) else df.index.astype(str)
+    
     for col, label, color in map_cf:
         if col in df.columns:
-            fig.add_trace(go.Bar(x=df.index.year, y=df[col]/1e9, name=label, marker_color=color))
+            fig.add_trace(go.Bar(x=x_vals, y=df[col]/1e9, name=label, marker_color=color))
             
     fig.update_layout(title=get_text('cf_breakdown_title', lang), height=400, barmode='group', template="plotly_dark", yaxis_title="Billions ($)")
     return fig
@@ -399,7 +420,6 @@ def main():
         
         st.divider()
         st.subheader(get_text("sidebar_stats", lang))
-        # Placeholder for stats
         stats_container = st.container()
         st.caption(get_text("data_source", lang))
 
@@ -432,7 +452,7 @@ def main():
         
         st.plotly_chart(plot_price_history(data["history"], data["symbol"]), use_container_width=True)
         
-        # TABS (Updated with Tab 3)
+        # TABS
         tab1, tab2, tab3 = st.tabs([
             get_text("tab_intrinsic", lang), 
             get_text("tab_cagr", lang),
@@ -457,23 +477,19 @@ def main():
             
             st.divider()
             
-            # Results
             r1, r2, r3 = st.columns(3)
             with r1:
                 st.plotly_chart(plot_gauge(data["current_price"], fair_value, get_text("fair_value_label", lang)), use_container_width=True)
             with r2:
                 st.metric(get_text("fair_value_label", lang), format_currency(fair_value), f"Margin: {margin:.1%}")
-                if is_undervalued:
-                    st.success(f"✅ {get_text('undervalued', lang)}")
-                else:
-                    st.error(f"❌ {get_text('overvalued', lang)}")
+                if is_undervalued: st.success(f"✅ {get_text('undervalued', lang)}")
+                else: st.error(f"❌ {get_text('overvalued', lang)}")
             with r3:
                 st.metric(get_text("future_price_label", lang), format_currency(future_price))
                 st.caption(f"Based on EPS: ${future_eps:.2f}")
 
             st.divider()
             
-            # Chart + Table
             full_years = [current_year - i for i in range(3, 0, -1)] + [current_year + i for i in range(0, 6)]
             full_years.sort()
             eps_curve = []
@@ -490,18 +506,17 @@ def main():
                 eps_df = pd.DataFrame({"Year": full_years, "EPS": [f"${e:.2f}" for e in eps_curve]})
                 st.dataframe(eps_df, use_container_width=True)
 
-        # --- TAB 2: CAGR (Restructured & Manual Input) ---
+        # --- TAB 2: CAGR ---
         with tab2:
             st.subheader(get_text("tab_cagr", lang))
             
-            # Historical Context + RESTORED P/E Chart
             st.write(f"#### {get_text('hist_context', lang)}")
             h1, h2, h3 = st.columns(3)
             with h1: st.metric("Hist. Rev CAGR", f"{data['hist_rev_cagr']:.1%}")
             with h2: st.metric("Hist. Net Margin", f"{data['avg_net_margin']:.1%}")
             with h3: st.metric("Hist. Avg P/E", f"{data['avg_pe_5y']:.2f}")
             
-            st.plotly_chart(plot_financials(data["financials"].tail(5), get_text("chart_financials", lang)), use_container_width=True)
+            st.plotly_chart(plot_financials(data["annual"]["financials"].tail(5), get_text("chart_financials", lang)), use_container_width=True)
             
             if data['hist_pe_series'] is not None:
                 st.plotly_chart(plot_historical_pe(data['hist_pe_series'], get_text("hist_pe_chart", lang)), use_container_width=True)
@@ -510,42 +525,28 @@ def main():
 
             st.divider()
 
-            # --- Step 1: Base Assumptions (Manual Inputs) ---
+            # Step 1
             st.write(f"#### {get_text('step1', lang)}")
-            
-            # 3 Columns for Manual Base Data
             col_b1, col_b2, col_b3 = st.columns(3)
-            
             with col_b1:
-                # Default to API TTM Revenue in Billions
                 default_rev = data["total_revenue_ttm"] / 1e9 
                 base_rev_input = st.number_input(get_text("input_base_rev", lang), value=default_rev)
-            
             with col_b2:
-                # Default to API Margin
                 default_margin = data["profit_margins"] * 100
                 base_margin_input = st.number_input(get_text("input_base_margin", lang), value=default_margin)
-            
             with col_b3:
-                # Derived Net Income (based on user inputs)
                 base_net_income = base_rev_input * (base_margin_input / 100)
                 st.metric(get_text("input_base_ni", lang), f"${base_net_income:,.2f}B")
 
-            # Growth & Shares (Row 2)
             c1, c2, c3 = st.columns(3)
-            with c1: 
-                rev_growth = st.number_input(get_text("rev_growth", lang), value=10.0) / 100
-            with c2: 
-                share_chg = st.number_input(get_text("shares_chg", lang), value=-1.0) / 100
-            with c3:
-                st.metric(get_text("years_label", lang), f"5 ({target_year})")
+            with c1: rev_growth = st.number_input(get_text("rev_growth", lang), value=10.0) / 100
+            with c2: share_chg = st.number_input(get_text("shares_chg", lang), value=-1.0) / 100
+            with c3: st.metric(get_text("years_label", lang), f"5 ({target_year})")
 
             st.divider()
 
-            # --- Step 2: Future Financials ---
+            # Step 2
             st.write(f"#### {get_text('step2', lang)}")
-            
-            # Calculations based on MANUAL inputs
             fut_rev = (base_rev_input * 1e9) * ((1 + rev_growth) ** 5)
             fut_ni = fut_rev * (base_margin_input / 100)
             
@@ -556,10 +557,9 @@ def main():
 
             st.divider()
 
-            # --- Step 3: Scenarios ---
+            # Step 3
             st.write(f"#### {get_text('step3', lang)}")
             pe_col1, pe_col2, pe_col3 = st.columns(3)
-            
             fut_shares = data["shares_outstanding"] * ((1 + share_chg) ** 5)
             if fut_shares == 0: fut_shares = 1
             
@@ -568,17 +568,14 @@ def main():
                 (get_text("pe_base", lang), 20),
                 (get_text("pe_bull", lang), 25)
             ]
-            
             cagrs = []
             for i, (label, default_val) in enumerate(scenarios):
                 with [pe_col1, pe_col2, pe_col3][i]:
                     pe_val = st.number_input(label, value=default_val, key=f"pe_{i}")
-                    
                     fut_mcap = fut_ni * pe_val
                     fut_price = fut_mcap / fut_shares
                     cagr = (fut_price / data["current_price"]) ** (1/5) - 1
                     cagrs.append(cagr)
-                    
                     st.metric(get_text("fut_mcap", lang), format_billions(fut_mcap))
                     st.metric(get_text("fut_price", lang), format_currency(fut_price))
                     st.metric("CAGR", f"{cagr:.1%}")
@@ -586,24 +583,30 @@ def main():
             st.divider()
             st.plotly_chart(plot_scenario_cagr(cagrs[0], cagrs[1], cagrs[2], get_text("cagr_title", lang)), use_container_width=True)
 
-        # --- TAB 3: FINANCIAL STATEMENTS (NEW!) ---
+        # --- TAB 3: FINANCIAL STATEMENTS ---
         with tab3:
             st.subheader(get_text("tab_financials", lang))
             
+            # View Selector
+            view_mode = st.radio(get_text("view_type", lang), [get_text("view_annual", lang), get_text("view_quarterly", lang)], horizontal=True)
+            
+            # Select Data Source based on toggle
+            selected_data = data["annual"] if view_mode == get_text("view_annual", lang) else data["quarterly"]
+            
             # 1. Income Statement
-            st.plotly_chart(plot_income_statement(data['financials'], lang), use_container_width=True)
+            st.plotly_chart(plot_income_statement(selected_data['financials'], lang), use_container_width=True)
             st.divider()
             
             # 2. Balance Sheet
-            st.plotly_chart(plot_balance_sheet(data['balance_sheet'], lang), use_container_width=True)
+            st.plotly_chart(plot_balance_sheet(selected_data['balance_sheet'], lang), use_container_width=True)
             st.divider()
             
             # 3. Cash Flow
             c1, c2 = st.columns(2)
             with c1:
-                st.plotly_chart(plot_cash_change(data['cashflow'], lang), use_container_width=True)
+                st.plotly_chart(plot_cash_change(selected_data['cashflow'], lang), use_container_width=True)
             with c2:
-                st.plotly_chart(plot_cashflow_breakdown(data['cashflow'], lang), use_container_width=True)
+                st.plotly_chart(plot_cashflow_breakdown(selected_data['cashflow'], lang), use_container_width=True)
 
     else:
         st.info("👈 Enter a ticker to begin.")
