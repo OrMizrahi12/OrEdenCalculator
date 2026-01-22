@@ -13,13 +13,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Inject Custom CSS for "Fintech" Look
+# Inject Custom CSS for "Fintech" Look & Readability
 st.markdown("""
 <style>
     /* Global Font & Colors */
     .stApp {
         background-color: #0e1117;
-        color: #fafafa;
+        color: #ffffff; /* White Text */
+    }
+    
+    /* Input Labels - Force White */
+    label, .stTextInput label, .stNumberInput label {
+        color: #ffffff !important;
+        font-weight: 600;
+        font-size: 14px;
     }
     
     /* Metrics Styling */
@@ -33,7 +40,7 @@ st.markdown("""
         color: #a0a0a0;
     }
     
-    /* Custom Cards for Key Results */
+    /* Custom Cards */
     .result-card {
         background-color: #1e2127;
         padding: 20px;
@@ -42,24 +49,49 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         text-align: center;
         margin-bottom: 20px;
+        height: 100%;
     }
     .result-title {
         font-size: 14px;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: #888;
+        color: #bbb;
         margin-bottom: 8px;
     }
     .result-value {
-        font-size: 36px;
+        font-size: 32px;
         font-weight: 800;
         margin-bottom: 4px;
+        color: white;
     }
     .result-sub {
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 500;
+        color: #ddd;
+        margin-top: 5px;
+    }
+    .scenario-header {
+        font-size: 18px;
+        font-weight: bold;
+        text-align: center;
+        padding: 8px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        color: #0e1117; /* Dark text for contrast on colored background */
     }
     
+    /* Blue Stats Sidebar */
+    .blue-stat {
+        background-color: #1c2e4a;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 5px;
+        border-left: 4px solid #2196F3;
+        color: white;
+    }
+    .stat-label { font-size: 12px; font-weight: bold; color: #ccc; }
+    .stat-value { font-size: 16px; font-weight: bold; color: #fff; }
+
     /* Verdict Box */
     .verdict-box {
         padding: 15px;
@@ -68,8 +100,8 @@ st.markdown("""
         font-weight: bold;
         margin-top: 10px;
     }
-    .verdict-success { background-color: rgba(0, 200, 5, 0.15); border: 1px solid #00c805; color: #00c805; }
-    .verdict-danger { background-color: rgba(255, 80, 0, 0.15); border: 1px solid #ff5000; color: #ff5000; }
+    .verdict-success { background-color: rgba(0, 200, 5, 0.2); border: 1px solid #00c805; color: #4caf50; }
+    .verdict-danger { background-color: rgba(255, 80, 0, 0.2); border: 1px solid #ff5000; color: #ff5722; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -97,11 +129,11 @@ TRANSLATIONS = {
         "premium": "Premium",
         "margin_safety": "Margin of Safety",
         "proj_growth": "EPS Growth Rate",
-        "future_pe": "Exit P/E (Yr 5)",
-        "discount_rate": "Discount Rate",
-        "rev_growth": "Rev Growth",
-        "net_margin": "Net Margin",
-        "shares_chg": "Share Change",
+        "future_pe": "P/E (on EPS 5)",
+        "discount_rate": "i (Discount Rate)",
+        "rev_growth": "Rev Growth (%)",
+        "net_margin": "Net Margin (%)",
+        "shares_chg": "Share Change (%)",
         "pe_bear": "Bear P/E",
         "pe_base": "Base P/E",
         "pe_bull": "Bull P/E",
@@ -117,7 +149,16 @@ TRANSLATIONS = {
         "hist_rev_growth": "Hist. Growth",
         "hist_net_margin": "Hist. Margin",
         "double_money": "Double Money Potential",
-        "definitions": {}
+        "current_mkt_val": "Current Market Value",
+        "years_label": "Years",
+        "step1": "Step 1: Growth Assumptions",
+        "step2": "Step 2: Future Financials (Year 5)",
+        "step3": "Step 3: Valuation Scenarios & Target Price",
+        "fut_rev": "Revenue (Yr 5)",
+        "fut_ni": "Net Profit (Yr 5)",
+        "fut_mcap": "Implied Market Cap",
+        "fut_price": "Target Price",
+        "cagr_label": "CAGR"
     },
     "he": {
         "title": "💎 לוח הערכת שווי מניות",
@@ -140,10 +181,10 @@ TRANSLATIONS = {
         "premium": "פרמיה",
         "margin_safety": "מרווח ביטחון",
         "proj_growth": "צמיחת רווח (שנתית)",
-        "future_pe": "מכפיל יציאה (שנה 5)",
-        "discount_rate": "תשואה נדרשת",
-        "rev_growth": "צמיחת הכנסות",
-        "net_margin": "שולי רווח נקי",
+        "future_pe": "P/E (על EPS 5)",
+        "discount_rate": "i (קצב היוון)",
+        "rev_growth": "צמיחת הכנסות (%)",
+        "net_margin": "שולי רווח נקי (%)",
         "shares_chg": "שינוי מניות (שנתי)",
         "pe_bear": "מכפיל פסימי",
         "pe_base": "מכפיל בסיס",
@@ -160,7 +201,16 @@ TRANSLATIONS = {
         "hist_rev_growth": "צמיחה היסטורית",
         "hist_net_margin": "רווחיות היסטורית",
         "double_money": "פוטנציאל הכפלה (14.4%)",
-        "definitions": {}
+        "current_mkt_val": "שווי שוק נוכחי",
+        "years_label": "שנים לתחזית",
+        "step1": "שלב 1: הנחות צמיחה",
+        "step2": "שלב 2: תוצאות פיננסיות (שנה 5)",
+        "step3": "שלב 3: תרחישי שווי ומחיר מניה",
+        "fut_rev": "הכנסות (שנה 5)",
+        "fut_ni": "רווח נקי (שנה 5)",
+        "fut_mcap": "שווי שוק חזוי",
+        "fut_price": "מחיר מניה (2031)",
+        "cagr_label": "תשואה שנתית"
     }
 }
 
@@ -253,7 +303,6 @@ def fetch_stock_data(ticker_symbol):
 # --- 4. ADVANCED VISUALS ---
 
 def style_chart_layout(fig):
-    """Applies a premium financial look to charts."""
     fig.update_layout(
         template="plotly_dark",
         paper_bgcolor='rgba(0,0,0,0)',
@@ -267,13 +316,8 @@ def style_chart_layout(fig):
     return fig
 
 def plot_price_history_candle(hist_df, symbol):
-    """Candlestick chart with Moving Average - The 'Pro' view."""
-    # Calculate simple moving average (SMA 50)
     hist_df['SMA50'] = hist_df['Close'].rolling(window=50).mean()
-    
     fig = go.Figure()
-    
-    # Candlesticks
     fig.add_trace(go.Candlestick(
         x=hist_df.index,
         open=hist_df['Open'], high=hist_df['High'],
@@ -281,31 +325,21 @@ def plot_price_history_candle(hist_df, symbol):
         name="Price",
         increasing_line_color='#00C805', decreasing_line_color='#FF5000'
     ))
-    
-    # SMA Line
     fig.add_trace(go.Scatter(
         x=hist_df.index, y=hist_df['SMA50'], 
-        name="MA 50", 
-        line=dict(color='#2196F3', width=1.5),
-        opacity=0.7
+        name="MA 50", line=dict(color='#2196F3', width=1.5), opacity=0.7
     ))
-
     fig.update_layout(
         title=dict(text=f"{symbol} Price Action", font=dict(size=18, color="#ccc")),
-        height=380,
-        showlegend=False,
-        xaxis_rangeslider_visible=False
+        height=380, showlegend=False, xaxis_rangeslider_visible=False
     )
     return style_chart_layout(fig)
 
 def plot_pe_area(pe_series, title_text):
-    """Area chart for P/E - cleaner look."""
     if pe_series is None or pe_series.empty: return go.Figure()
-    
     fig = go.Figure(go.Scatter(
         x=pe_series.index, y=pe_series.values,
-        fill='tozeroy',
-        mode='lines',
+        fill='tozeroy', mode='lines',
         line=dict(color='#FFA15A', width=2),
         fillcolor='rgba(255, 161, 90, 0.1)'
     ))
@@ -313,91 +347,49 @@ def plot_pe_area(pe_series, title_text):
     return style_chart_layout(fig)
 
 def plot_eps_trajectory_area(years, eps_data, title_text, current_year_val):
-    """Area chart showing the growth path."""
     fig = go.Figure()
-    
-    # History
     hist_x = [y for y in years if y <= current_year_val]
     hist_y = [eps_data[i] for i, y in enumerate(years) if y <= current_year_val]
-    
-    # Projection
     fut_x = [y for y in years if y >= current_year_val]
     fut_y = [eps_data[i] for i, y in enumerate(years) if y >= current_year_val]
     
-    # Plot History (Solid)
     fig.add_trace(go.Scatter(
         x=hist_x, y=hist_y, name="History",
-        line=dict(color='#888', width=2),
-        mode='lines+markers'
+        line=dict(color='#888', width=2), mode='lines+markers'
     ))
-    
-    # Plot Future (Gradient Area)
     fig.add_trace(go.Scatter(
         x=fut_x, y=fut_y, name="Forecast",
-        fill='tozeroy',
-        line=dict(color='#636EFA', width=3),
-        fillcolor='rgba(99, 110, 250, 0.2)',
-        mode='lines+markers'
+        fill='tozeroy', line=dict(color='#636EFA', width=3),
+        fillcolor='rgba(99, 110, 250, 0.2)', mode='lines+markers'
     ))
-    
     fig.update_layout(title=title_text, height=320, yaxis_title="EPS ($)")
     return style_chart_layout(fig)
 
 def plot_financials_dual(df, title_text):
-    """Dual axis or grouped bar for Revenue vs Income."""
     if df.empty: return go.Figure()
     df = df.copy()
     if 'Total Revenue' not in df.columns: return go.Figure()
     ni_col = 'Net Income' if 'Net Income' in df.columns else 'Net Income Common Stockholders'
     
     fig = go.Figure()
-    
-    # Revenue (Bar)
     fig.add_trace(go.Bar(
         x=df.index.year, y=df['Total Revenue']/1e9, 
         name='Revenue', marker_color='#2c3e50', opacity=0.8
     ))
-    
-    # Income (Line overlay or bright bar)
     if ni_col in df.columns:
         fig.add_trace(go.Scatter(
             x=df.index.year, y=df[ni_col]/1e9, 
             name='Net Income', line=dict(color='#00C805', width=3),
             mode='lines+markers'
         ))
-        
     fig.update_layout(title=title_text, height=350, yaxis_title="$ Billions", barmode='overlay')
-    return style_chart_layout(fig)
-
-def plot_cagr_gauge_bar(bear, base, bull, title_text):
-    """Horizontal bars that look like progress bars towards the target."""
-    scenarios = ["Bear", "Base", "Bull"]
-    values = [bear*100, base*100, bull*100]
-    colors = ['#EF553B', '#FFA15A', '#00C805'] # Red, Orange, Green
-    
-    fig = go.Figure()
-    
-    fig.add_trace(go.Bar(
-        y=scenarios, x=values,
-        orientation='h',
-        text=[f"{v:.1f}%" for v in values],
-        textposition='auto',
-        marker_color=colors,
-        opacity=0.9
-    ))
-    
-    # Target Line (12%)
-    fig.add_vline(x=12, line_width=2, line_dash="dash", line_color="white", annotation_text="Goal (12%)")
-    # Double Line (14.4%)
-    fig.add_vline(x=14.4, line_width=1, line_dash="dot", line_color="#00C805", annotation_text="Double")
-
-    fig.update_layout(title=title_text, height=300, xaxis_title="Annual Return (%)")
     return style_chart_layout(fig)
 
 # --- 5. MAIN LOGIC ---
 
 def main():
     current_year = datetime.now().year
+    target_year = current_year + 5
     
     # --- SIDEBAR ---
     with st.sidebar:
@@ -412,7 +404,7 @@ def main():
         
         st.markdown("---")
         st.markdown(f"### {get_text('sidebar_stats', lang)}")
-        stats_container = st.empty() # Placeholder
+        stats_container = st.empty()
         st.caption(get_text("data_source", lang))
 
     # --- HEADER ---
@@ -432,21 +424,19 @@ def main():
         # --- SIDEBAR POPULATION ---
         with stats_container.container():
             col_a, col_b = st.columns(2)
-            # Create mini-cards using Markdown
             def mini_stat(label, value):
                 return f"""<div style="margin-bottom:10px;">
-                        <div style="font-size:11px; color:#888;">{label}</div>
-                        <div style="font-size:15px; font-weight:bold;">{value}</div>
+                        <div style="font-size:11px; color:#aaa;">{label}</div>
+                        <div style="font-size:15px; font-weight:bold; color:white;">{value}</div>
                         </div>"""
-            
             with col_a:
                 st.markdown(mini_stat("P/E", f"{data['pe_ratio']:.1f}" if data['pe_ratio'] else "-"), unsafe_allow_html=True)
                 st.markdown(mini_stat("EPS", f"${data['trailing_eps']}"), unsafe_allow_html=True)
             with col_b:
                 st.markdown(mini_stat("Fwd P/E", f"{data['forward_pe']:.1f}" if data['forward_pe'] else "-"), unsafe_allow_html=True)
-                st.markdown(mini_stat("Margin", f"{data['profit_margins']*100:.1f}%"), unsafe_allow_html=True)
+                st.markdown(mini_stat("Net Income Margin", f"{data['profit_margins']*100:.1f}%"), unsafe_allow_html=True)
 
-        # --- HERO SECTION (Metrics + Chart) ---
+        # --- HERO SECTION ---
         col_m1, col_m2, col_m3, col_m4 = st.columns(4)
         col_m1.metric(data["symbol"], format_currency(data["current_price"]))
         col_m2.metric(get_text("market_cap", lang), format_billions(data["market_cap"]))
@@ -464,25 +454,20 @@ def main():
         # CALCULATOR 1: INTRINSIC
         # ==========================
         with tab1:
-            # Controls Row
             c1, c2, c3, c4 = st.columns(4)
             with c1: input_eps = st.number_input("EPS ($)", value=float(data["trailing_eps"]))
             with c2: growth_rate = st.number_input(get_text("proj_growth", lang), value=12.0) / 100
             with c3: future_pe = st.number_input(get_text("future_pe", lang), value=20.0)
             with c4: discount_rate = st.number_input(get_text("discount_rate", lang), value=10.0) / 100
 
-            # Calc
             future_eps = input_eps * ((1 + growth_rate) ** 5)
             future_price = future_eps * future_pe
             fair_value = future_price / ((1 + discount_rate) ** 5)
             margin = (fair_value - data["current_price"]) / fair_value
             is_undervalued = data["current_price"] < fair_value
             
-            # --- RESULTS CARDS (The "Class" UI) ---
-            st.write("") # Spacer
+            st.write("") 
             res_c1, res_c2, res_c3 = st.columns([1, 1, 1])
-            
-            # Card 1: Fair Value
             with res_c1:
                 color = "#00C805" if is_undervalued else "#FF5000"
                 st.markdown(f"""
@@ -492,8 +477,6 @@ def main():
                     <div class="result-sub">Margin: {margin:.1%}</div>
                 </div>
                 """, unsafe_allow_html=True)
-            
-            # Card 2: Verdict
             with res_c2:
                 verdict_class = "verdict-success" if is_undervalued else "verdict-danger"
                 verdict_text = get_text("undervalued", lang) if is_undervalued else get_text("overvalued", lang)
@@ -508,8 +491,6 @@ def main():
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
-
-            # Card 3: Future Price
             with res_c3:
                 st.markdown(f"""
                 <div class="result-card" style="border-top: 4px solid #636EFA;">
@@ -519,10 +500,7 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
 
-            # Chart & Table
             st.divider()
-            
-            # Data Prep
             full_years = [current_year - i for i in range(3, 0, -1)] + [current_year + i for i in range(0, 6)]
             full_years.sort()
             eps_curve = []
@@ -540,91 +518,89 @@ def main():
                 st.dataframe(eps_df, use_container_width=True, height=300)
 
         # ==========================
-        # CALCULATOR 2: CAGR
+        # CALCULATOR 2: CAGR (RESTRUCTURED)
         # ==========================
         with tab2:
-            # Historical Context Section
-            st.subheader(get_text("hist_context", lang))
+            st.subheader(get_text("tab_cagr", lang))
             
-            h1, h2, h3 = st.columns(3)
-            with h1: st.metric(get_text("hist_rev_growth", lang), f"{data['hist_rev_cagr']:.1%}")
-            with h2: st.metric(get_text("hist_net_margin", lang), f"{data['avg_net_margin']:.1%}")
-            with h3: st.metric(get_text("avg_pe", lang), f"{data['avg_pe_5y']:.2f}")
-
-            # Two Charts side by side
-            c_hist1, c_hist2 = st.columns(2)
-            with c_hist1:
-                st.plotly_chart(plot_financials_dual(data["financials"].tail(5), get_text("chart_financials", lang)), use_container_width=True)
-            with c_hist2:
-                if data['hist_pe_series'] is not None and not data['hist_pe_series'].empty:
-                    st.plotly_chart(plot_pe_area(data['hist_pe_series'], get_text("hist_pe_chart", lang)), use_container_width=True)
-                else:
-                    st.info("No Historical P/E Available")
+            # --- STEP 1: ASSUMPTIONS ---
+            st.markdown(f"#### {get_text('step1', lang)}")
+            col_inputs1, col_inputs2, col_inputs3, col_inputs4 = st.columns(4)
+            with col_inputs1:
+                rev_growth = st.number_input(get_text("rev_growth", lang), value=10.0) / 100
+            with col_inputs2:
+                st.markdown(f"""<div style="background-color:#1c2e4a; padding:10px; border-radius:8px; text-align:center;">
+                    <span style="font-size:12px; color:#aaa;">{get_text('current_mkt_val', lang)}</span><br>
+                    <span style="font-size:18px; font-weight:bold; color:white;">{format_billions(data['market_cap'])}</span>
+                </div>""", unsafe_allow_html=True)
+            with col_inputs3:
+                st.markdown(f"""<div style="background-color:#1c2e4a; padding:10px; border-radius:8px; text-align:center;">
+                    <span style="font-size:12px; color:#aaa;">{get_text('years_label', lang)}</span><br>
+                    <span style="font-size:18px; font-weight:bold; color:white;">5 ({target_year})</span>
+                </div>""", unsafe_allow_html=True)
+            with col_inputs4:
+                net_margin = st.number_input(get_text("net_margin", lang), value=20.0) / 100
+            
+            share_chg = st.number_input(get_text("shares_chg", lang), value=-1.0) / 100
 
             st.divider()
 
-            # Projection Inputs
-            i1, i2, i3 = st.columns(3)
-            with i1: rev_growth = st.number_input(get_text("rev_growth", lang), value=10.0) / 100
-            with i2: net_margin = st.number_input(get_text("net_margin", lang), value=20.0) / 100
-            with i3: share_chg = st.number_input(get_text("shares_chg", lang), value=-1.0) / 100
-            
-            p1, p2, p3 = st.columns(3)
-            with p1: pe_bear = st.number_input(get_text("pe_bear", lang), value=15)
-            with p2: pe_base = st.number_input(get_text("pe_base", lang), value=20)
-            with p3: pe_bull = st.number_input(get_text("pe_bull", lang), value=25)
-
-            # Logic
-            proj_data = []
+            # --- STEP 2: FINANCIALS ---
+            st.markdown(f"#### {get_text('step2', lang)}")
             curr_rev = data["total_revenue_ttm"]
-            for i in range(-3, 6):
-                yr = current_year + i
-                # Simple visual projection back and forth
-                factor = (1 + rev_growth) ** i
-                f_rev = curr_rev * factor
-                f_ni = f_rev * net_margin
-                row_type = "Est" if i < 0 else ("Base" if i == 0 else "Proj")
-                proj_data.append({"Year": yr, "Rev": f_rev, "NI": f_ni, "Type": row_type})
+            fut_rev = curr_rev * ((1 + rev_growth) ** 5)
+            fut_ni = fut_rev * net_margin
             
-            # Calculations
-            fut_ni = proj_data[-1]["NI"]
+            col_p1, col_p2, col_p3 = st.columns(3)
+            with col_p1:
+                st.metric(get_text("fut_rev", lang), format_billions(fut_rev))
+            with col_p2:
+                st.metric(get_text("net_margin", lang), f"{net_margin*100:.1f}%")
+            with col_p3:
+                st.metric(get_text("fut_ni", lang), format_billions(fut_ni))
+
+            st.divider()
+
+            # --- STEP 3: VALUATION SCENARIOS ---
+            st.markdown(f"#### {get_text('step3', lang)}")
+            
+            pe_col1, pe_col2, pe_col3 = st.columns(3)
             fut_shares = data["shares_outstanding"] * ((1 + share_chg) ** 5)
             if fut_shares == 0: fut_shares = 1
-            
-            cagrs = []
-            for pe in [pe_bear, pe_base, pe_bull]:
-                mcap = fut_ni * pe
-                price = mcap / fut_shares
-                cagr = (price / data["current_price"]) ** (1/5) - 1
-                cagrs.append(cagr)
 
-            # Results
-            st.write("")
-            res_col1, res_col2 = st.columns([3, 2])
-            
-            with res_col1:
-                st.plotly_chart(plot_cagr_gauge_bar(cagrs[0], cagrs[1], cagrs[2], get_text("cagr_title", lang)), use_container_width=True)
-            
-            with res_col2:
-                # Big CAGR Card
-                cagr_base = cagrs[1]
-                color = "#00C805" if cagr_base > 0.12 else "#FF5000"
-                msg = get_text("double_money", lang) if cagr_base > 0.144 else ("> 12%" if cagr_base > 0.12 else "< 12%")
-                
-                st.markdown(f"""
-                <div class="result-card" style="margin-top: 40px;">
-                    <div class="result-title">{get_text('target_return', lang)}</div>
-                    <div class="result-value" style="color: {color};">{cagr_base:.1%}</div>
-                    <div class="result-sub" style="color: #aaa;">{msg}</div>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Projection Table at bottom
-            with st.expander(f"📊 {get_text('proj_table', lang)}"):
-                df_p = pd.DataFrame(proj_data)
-                df_p['Rev'] = df_p['Rev'].apply(lambda x: f"${x/1e9:.2f}B")
-                df_p['NI'] = df_p['NI'].apply(lambda x: f"${x/1e9:.2f}B")
-                st.dataframe(df_p, use_container_width=True)
+            scenarios = [
+                {"name": "Bear", "label": get_text("pe_bear", lang), "default": 15, "color": "#EF553B"},
+                {"name": "Base", "label": get_text("pe_base", lang), "default": 20, "color": "#FFA15A"},
+                {"name": "Bull", "label": get_text("pe_bull", lang), "default": 25, "color": "#00C805"}
+            ]
+
+            for i, col in enumerate([pe_col1, pe_col2, pe_col3]):
+                scen = scenarios[i]
+                with col:
+                    st.markdown(f"<div class='scenario-header' style='background-color:{scen['color']}'>{scen['name']} Case</div>", unsafe_allow_html=True)
+                    
+                    pe_input = st.number_input(scen["label"], value=scen["default"], key=f"pe_{i}")
+                    
+                    fut_mcap = fut_ni * pe_input
+                    fut_price = fut_mcap / fut_shares
+                    cagr = (fut_price / data["current_price"]) ** (1/5) - 1
+                    
+                    color_cagr = "#EF553B"
+                    if cagr > 0.12: color_cagr = "#FFA15A"
+                    if cagr > 0.144: color_cagr = "#00C805"
+                    
+                    # IMPORTANT: Fixed Indentation Here
+                    st.markdown(f"""
+<div class="result-card" style="border-top: 3px solid {scen['color']};">
+    <div style="color: #aaa; font-size: 13px;">{get_text('fut_price', lang)}</div>
+    <div style="font-size: 32px; font-weight: bold; color: white;">{format_currency(fut_price)}</div>
+    <div style="margin-top: 12px; font-size: 13px; color: #aaa;">{get_text('cagr_label', lang)}</div>
+    <div style="font-size: 22px; font-weight: bold; color: {color_cagr};">{cagr:.1%}</div>
+    <hr style="border-color: #333;">
+    <div style="font-size: 12px; color: #888;">{get_text('fut_mcap', lang)}</div>
+    <div style="font-size: 14px; font-weight: bold; color: #ddd;">{format_billions(fut_mcap)}</div>
+</div>
+""", unsafe_allow_html=True)
 
     else:
         st.info("👈 Enter a ticker to begin.")
