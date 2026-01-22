@@ -22,8 +22,9 @@ TRANSLATIONS = {
         "ticker_label": "Enter Stock Ticker",
         "analyze_btn": "Analyze Stock",
         "data_source": "Data: Yahoo Finance",
-        "tab_intrinsic": "Calculator 1: Intrinsic Value (EPS)",
-        "tab_cagr": "Calculator 2: Market Cap & Scenarios",
+        "tab_intrinsic": "1. Intrinsic Value (EPS)",
+        "tab_cagr": "2. Scenario Analysis",
+        "tab_financials": "3. Financial Statements", # NEW TAB
         "current_price": "Current Price",
         "market_cap": "Market Cap",
         "pe_ratio": "P/E (TTM)",
@@ -61,7 +62,21 @@ TRANSLATIONS = {
         "years_label": "Years Forecast",
         "input_base_rev": "Base Revenue ($B)",
         "input_base_margin": "Base Net Margin (%)",
-        "input_base_ni": "Base Net Income ($B)"
+        "input_base_ni": "Base Net Income ($B)",
+        # NEW TRANSLATIONS FOR FINANCIALS TAB
+        "inc_stmt_title": "Income Statement Trends",
+        "bs_title": "Balance Sheet: Assets vs. Liabilities",
+        "cf_change_title": "Change in Cash Position",
+        "cf_breakdown_title": "Cash Flow Breakdown (Op/Inv/Fin)",
+        "metric_rev": "Total Revenue",
+        "metric_gp": "Gross Profit",
+        "metric_op": "Operating Income",
+        "metric_ni": "Net Income",
+        "assets": "Total Assets",
+        "liabilities": "Total Liabilities",
+        "cf_op": "Operating",
+        "cf_inv": "Investing",
+        "cf_fin": "Financing"
     },
     "he": {
         "title": "💰 לוח מכוונים להערכת שווי",
@@ -70,8 +85,9 @@ TRANSLATIONS = {
         "ticker_label": "הכנס סימול מניה",
         "analyze_btn": "נתח מניה",
         "data_source": "מקור נתונים: Yahoo Finance",
-        "tab_intrinsic": "מחשבון 1: ערך פנימי (EPS)",
-        "tab_cagr": "מחשבון 2: שווי שוק ותרחישים",
+        "tab_intrinsic": "1. ערך פנימי (EPS)",
+        "tab_cagr": "2. שווי שוק ותרחישים",
+        "tab_financials": "3. דוחות כספיים", # טאב חדש
         "current_price": "מחיר נוכחי",
         "market_cap": "שווי שוק",
         "pe_ratio": "מכפיל רווח (TTM)",
@@ -109,7 +125,21 @@ TRANSLATIONS = {
         "years_label": "שנים לתחזית",
         "input_base_rev": "הכנסה שנתית בסיס ($B)",
         "input_base_margin": "שולי רווח בסיס (%)",
-        "input_base_ni": "רווח נקי בסיס ($B)"
+        "input_base_ni": "רווח נקי בסיס ($B)",
+        # תרגומים חדשים לדוחות הכספיים
+        "inc_stmt_title": "מגמות דוח רווח והפסד",
+        "bs_title": "מאזן: נכסים מול התחייבויות",
+        "cf_change_title": "שינוי במזומנים",
+        "cf_breakdown_title": "פירוט תזרים מזומנים (שוטף/השקעה/מימון)",
+        "metric_rev": "הכנסות",
+        "metric_gp": "רווח גולמי",
+        "metric_op": "רווח תפעולי",
+        "metric_ni": "רווח נקי",
+        "assets": "סך נכסים",
+        "liabilities": "סך התחייבויות",
+        "cf_op": "פעילות שוטפת",
+        "cf_inv": "פעילות השקעה",
+        "cf_fin": "פעילות מימון"
     }
 }
 
@@ -146,7 +176,7 @@ def calculate_historical_pe(stock_obj, price_history):
         df_pe = pd.DataFrame(index=price_history.index.tz_localize(None))
         df_pe['Close'] = price_history['Close'].copy().tz_localize(None)
         
-        # Merge & Forward Fill (No Backfill guessing)
+        # Merge & Forward Fill
         df_pe['EPS'] = eps_data.reindex(df_pe.index, method='ffill')
         df_pe['PE'] = df_pe['Close'] / df_pe['EPS']
         
@@ -165,6 +195,10 @@ def fetch_stock_data(ticker_symbol):
         info = stock.info
         financials = stock.financials.T.sort_index(ascending=True)
         
+        # Fetch NEW reports
+        balance_sheet = stock.balance_sheet.T.sort_index(ascending=True)
+        cashflow = stock.cashflow.T.sort_index(ascending=True)
+        
         hist_rev_cagr = 0
         avg_net_margin = 0
         if not financials.empty and 'Total Revenue' in financials.columns:
@@ -178,7 +212,6 @@ def fetch_stock_data(ticker_symbol):
                 if ni in financials.columns: avg_net_margin = (financials[ni] / financials['Total Revenue']).mean()
             except: pass
 
-        # Get Historical PE Series
         hist_pe_series = calculate_historical_pe(stock, hist)
         avg_pe_5y = hist_pe_series.mean() if (hist_pe_series is not None and not hist_pe_series.empty) else info.get('trailingPE', 0)
 
@@ -193,6 +226,8 @@ def fetch_stock_data(ticker_symbol):
             "shares_outstanding": info.get("sharesOutstanding", 0),
             "market_cap": info.get("marketCap", 0),
             "financials": financials,
+            "balance_sheet": balance_sheet, # NEW
+            "cashflow": cashflow, # NEW
             "total_revenue_ttm": info.get("totalRevenue", 0),
             "hist_rev_cagr": hist_rev_cagr,
             "avg_net_margin": avg_net_margin,
@@ -267,6 +302,85 @@ def plot_scenario_cagr(bear, base, bull, title_text):
     fig.update_layout(title=title_text, height=300, template="plotly_dark")
     return fig
 
+# --- NEW PLOTS FOR TAB 3 ---
+
+def plot_income_statement(df, lang):
+    """Line chart for Revenue, Gross, Operating, Net."""
+    if df.empty: return go.Figure()
+    fig = go.Figure()
+    
+    # Define mapping of keys to plot
+    metrics = [
+        ('Total Revenue', get_text('metric_rev', lang), '#636EFA'),
+        ('Gross Profit', get_text('metric_gp', lang), '#00CC96'),
+        ('Operating Income', get_text('metric_op', lang), '#FFA15A'),
+        ('Net Income', get_text('metric_ni', lang), '#EF553B')
+    ]
+    
+    # Try alternative keys for Net Income
+    if 'Net Income' not in df.columns and 'Net Income Common Stockholders' in df.columns:
+        metrics[-1] = ('Net Income Common Stockholders', get_text('metric_ni', lang), '#EF553B')
+
+    for col, label, color in metrics:
+        if col in df.columns:
+            fig.add_trace(go.Scatter(x=df.index.year, y=df[col]/1e9, name=label, line=dict(color=color, width=2)))
+            
+    fig.update_layout(title=get_text('inc_stmt_title', lang), height=400, template="plotly_dark", yaxis_title="Billions ($)")
+    return fig
+
+def plot_balance_sheet(df, lang):
+    """Bar chart comparing Assets vs Liabilities."""
+    if df.empty: return go.Figure()
+    
+    assets_col = 'Total Assets'
+    liab_col = 'Total Liabilities Net Minority Interest'
+    if liab_col not in df.columns: liab_col = 'Total Liabilities' # Fallback
+    
+    fig = go.Figure()
+    
+    if assets_col in df.columns:
+        fig.add_trace(go.Bar(x=df.index.year, y=df[assets_col]/1e9, name=get_text('assets', lang), marker_color='#636EFA'))
+    if liab_col in df.columns:
+        fig.add_trace(go.Bar(x=df.index.year, y=df[liab_col]/1e9, name=get_text('liabilities', lang), marker_color='#EF553B'))
+        
+    fig.update_layout(title=get_text('bs_title', lang), height=400, barmode='group', template="plotly_dark", yaxis_title="Billions ($)")
+    return fig
+
+def plot_cash_change(df, lang):
+    """Bar chart for Changes In Cash."""
+    if df.empty: return go.Figure()
+    
+    # Find col
+    col = None
+    for c in ['Changes In Cash', 'Change In Cash']:
+        if c in df.columns: col = c; break
+        
+    if not col: return go.Figure()
+    
+    fig = go.Figure(go.Bar(x=df.index.year, y=df[col]/1e9, marker_color='#00CC96'))
+    fig.update_layout(title=get_text('cf_change_title', lang), height=350, template="plotly_dark", yaxis_title="Billions ($)")
+    return fig
+
+def plot_cashflow_breakdown(df, lang):
+    """Grouped bar for Op, Inv, Fin Activities."""
+    if df.empty: return go.Figure()
+    
+    fig = go.Figure()
+    
+    # Mapping
+    map_cf = [
+        ('Operating Cash Flow', get_text('cf_op', lang), '#636EFA'),
+        ('Investing Cash Flow', get_text('cf_inv', lang), '#FFA15A'),
+        ('Financing Cash Flow', get_text('cf_fin', lang), '#EF553B')
+    ]
+    
+    for col, label, color in map_cf:
+        if col in df.columns:
+            fig.add_trace(go.Bar(x=df.index.year, y=df[col]/1e9, name=label, marker_color=color))
+            
+    fig.update_layout(title=get_text('cf_breakdown_title', lang), height=400, barmode='group', template="plotly_dark", yaxis_title="Billions ($)")
+    return fig
+
 # --- 5. MAIN LOGIC ---
 
 def main():
@@ -318,7 +432,12 @@ def main():
         
         st.plotly_chart(plot_price_history(data["history"], data["symbol"]), use_container_width=True)
         
-        tab1, tab2 = st.tabs([get_text("tab_intrinsic", lang), get_text("tab_cagr", lang)])
+        # TABS (Updated with Tab 3)
+        tab1, tab2, tab3 = st.tabs([
+            get_text("tab_intrinsic", lang), 
+            get_text("tab_cagr", lang),
+            get_text("tab_financials", lang)
+        ])
 
         # --- TAB 1: Intrinsic Value ---
         with tab1:
@@ -466,6 +585,25 @@ def main():
 
             st.divider()
             st.plotly_chart(plot_scenario_cagr(cagrs[0], cagrs[1], cagrs[2], get_text("cagr_title", lang)), use_container_width=True)
+
+        # --- TAB 3: FINANCIAL STATEMENTS (NEW!) ---
+        with tab3:
+            st.subheader(get_text("tab_financials", lang))
+            
+            # 1. Income Statement
+            st.plotly_chart(plot_income_statement(data['financials'], lang), use_container_width=True)
+            st.divider()
+            
+            # 2. Balance Sheet
+            st.plotly_chart(plot_balance_sheet(data['balance_sheet'], lang), use_container_width=True)
+            st.divider()
+            
+            # 3. Cash Flow
+            c1, c2 = st.columns(2)
+            with c1:
+                st.plotly_chart(plot_cash_change(data['cashflow'], lang), use_container_width=True)
+            with c2:
+                st.plotly_chart(plot_cashflow_breakdown(data['cashflow'], lang), use_container_width=True)
 
     else:
         st.info("👈 Enter a ticker to begin.")
