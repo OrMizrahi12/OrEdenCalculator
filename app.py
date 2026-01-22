@@ -197,13 +197,13 @@ def fetch_stock_data(ticker_symbol):
         
         current_price = hist["Close"].iloc[-1]
         info = stock.info
-        
-        # FETCH ANNUAL (Default)
         financials = stock.financials.T.sort_index(ascending=True)
+        
+        # Fetch NEW reports
         balance_sheet = stock.balance_sheet.T.sort_index(ascending=True)
         cashflow = stock.cashflow.T.sort_index(ascending=True)
         
-        # FETCH QUARTERLY (For recent data)
+        # Fetch Quarterly
         q_financials = stock.quarterly_financials.T.sort_index(ascending=True)
         q_balance_sheet = stock.quarterly_balance_sheet.T.sort_index(ascending=True)
         q_cashflow = stock.quarterly_cashflow.T.sort_index(ascending=True)
@@ -234,12 +234,14 @@ def fetch_stock_data(ticker_symbol):
             "profit_margins": info.get("profitMargins", 0),
             "shares_outstanding": info.get("sharesOutstanding", 0),
             "market_cap": info.get("marketCap", 0),
+            "financials": financials,
+            "balance_sheet": balance_sheet,
+            "cashflow": cashflow,
             "total_revenue_ttm": info.get("totalRevenue", 0),
             "hist_rev_cagr": hist_rev_cagr,
             "avg_net_margin": avg_net_margin,
             "history": hist,
             "hist_pe_series": hist_pe_series,
-            # Data Containers
             "annual": {
                 "financials": financials,
                 "balance_sheet": balance_sheet,
@@ -322,11 +324,9 @@ def plot_scenario_cagr(bear, base, bull, title_text):
 # --- NEW PLOTS FOR TAB 3 ---
 
 def plot_income_statement(df, lang):
-    """Bar chart (Histogram style) for Revenue, Gross, Operating, Net."""
     if df.empty: return go.Figure()
     fig = go.Figure()
     
-    # Define mapping of keys to plot
     metrics = [
         ('Total Revenue', get_text('metric_rev', lang), '#636EFA'),
         ('Gross Profit', get_text('metric_gp', lang), '#00CC96'),
@@ -334,7 +334,6 @@ def plot_income_statement(df, lang):
         ('Net Income', get_text('metric_ni', lang), '#EF553B')
     ]
     
-    # Try alternative keys for Net Income
     if 'Net Income' not in df.columns and 'Net Income Common Stockholders' in df.columns:
         metrics[-1] = ('Net Income Common Stockholders', get_text('metric_ni', lang), '#EF553B')
 
@@ -348,12 +347,11 @@ def plot_income_statement(df, lang):
     return fig
 
 def plot_balance_sheet(df, lang):
-    """Bar chart comparing Assets vs Liabilities."""
     if df.empty: return go.Figure()
     
     assets_col = 'Total Assets'
     liab_col = 'Total Liabilities Net Minority Interest'
-    if liab_col not in df.columns: liab_col = 'Total Liabilities' # Fallback
+    if liab_col not in df.columns: liab_col = 'Total Liabilities' 
     
     x_vals = df.index if 'Quarter' not in str(type(df.index)) else df.index.astype(str)
     
@@ -367,7 +365,6 @@ def plot_balance_sheet(df, lang):
     return fig
 
 def plot_cash_change(df, lang):
-    """Bar chart for Changes In Cash."""
     if df.empty: return go.Figure()
     
     col = None
@@ -383,7 +380,6 @@ def plot_cash_change(df, lang):
     return fig
 
 def plot_cashflow_breakdown(df, lang):
-    """Grouped bar for Op, Inv, Fin Activities."""
     if df.empty: return go.Figure()
     
     fig = go.Figure()
@@ -436,14 +432,12 @@ def main():
     if st.session_state.stock_data:
         data = st.session_state.stock_data
         
-        # Sidebar Stats
         with stats_container:
             st.metric("P/E (TTM)", f"{data['pe_ratio']:.2f}" if data['pe_ratio'] else "-")
             st.metric("Fwd P/E", f"{data['forward_pe']:.2f}" if data['forward_pe'] else "-")
             st.metric("EPS (TTM)", f"${data['trailing_eps']}")
             st.metric("Net Income Margin", f"{data['profit_margins']*100:.2f}%")
 
-        # Top Metrics
         c1, c2, c3, c4 = st.columns(4)
         c1.metric("Stock", data["symbol"])
         c2.metric(get_text("current_price", lang), format_currency(data["current_price"]))
@@ -452,17 +446,15 @@ def main():
         
         st.plotly_chart(plot_price_history(data["history"], data["symbol"]), use_container_width=True)
         
-        # TABS
         tab1, tab2, tab3 = st.tabs([
             get_text("tab_intrinsic", lang), 
             get_text("tab_cagr", lang),
             get_text("tab_financials", lang)
         ])
 
-        # --- TAB 1: Intrinsic Value ---
+        # --- TAB 1 ---
         with tab1:
             st.subheader(get_text("tab_intrinsic", lang))
-            
             col1, col2, col3, col4 = st.columns(4)
             with col1: input_eps = st.number_input("EPS ($)", value=float(data["trailing_eps"]))
             with col2: growth_rate = st.number_input(get_text("proj_growth", lang), value=12.0) / 100
@@ -489,7 +481,6 @@ def main():
                 st.caption(f"Based on EPS: ${future_eps:.2f}")
 
             st.divider()
-            
             full_years = [current_year - i for i in range(3, 0, -1)] + [current_year + i for i in range(0, 6)]
             full_years.sort()
             eps_curve = []
@@ -506,7 +497,7 @@ def main():
                 eps_df = pd.DataFrame({"Year": full_years, "EPS": [f"${e:.2f}" for e in eps_curve]})
                 st.dataframe(eps_df, use_container_width=True)
 
-        # --- TAB 2: CAGR ---
+        # --- TAB 2 (MODIFIED STEP 1) ---
         with tab2:
             st.subheader(get_text("tab_cagr", lang))
             
@@ -525,7 +516,7 @@ def main():
 
             st.divider()
 
-            # Step 1
+            # --- Step 1: Base Assumptions (EDITED) ---
             st.write(f"#### {get_text('step1', lang)}")
             col_b1, col_b2, col_b3 = st.columns(3)
             with col_b1:
@@ -539,9 +530,15 @@ def main():
                 st.metric(get_text("input_base_ni", lang), f"${base_net_income:,.2f}B")
 
             c1, c2, c3 = st.columns(3)
-            with c1: rev_growth = st.number_input(get_text("rev_growth", lang), value=10.0) / 100
-            with c2: share_chg = st.number_input(get_text("shares_chg", lang), value=-1.0) / 100
-            with c3: st.metric(get_text("years_label", lang), f"5 ({target_year})")
+            with c1: 
+                rev_growth = st.number_input(get_text("rev_growth", lang), value=10.0) / 100
+            
+            # --- MODIFICATION HERE: Share Change Removed, Current Price Added ---
+            with c2: 
+                st.metric(get_text("current_price", lang), format_currency(data["current_price"]))
+            
+            with c3:
+                st.metric(get_text("years_label", lang), f"5 ({target_year})")
 
             st.divider()
 
@@ -560,7 +557,9 @@ def main():
             # Step 3
             st.write(f"#### {get_text('step3', lang)}")
             pe_col1, pe_col2, pe_col3 = st.columns(3)
-            fut_shares = data["shares_outstanding"] * ((1 + share_chg) ** 5)
+            
+            # Assuming constant shares since input was removed
+            fut_shares = data["shares_outstanding"] 
             if fut_shares == 0: fut_shares = 1
             
             scenarios = [
@@ -583,30 +582,19 @@ def main():
             st.divider()
             st.plotly_chart(plot_scenario_cagr(cagrs[0], cagrs[1], cagrs[2], get_text("cagr_title", lang)), use_container_width=True)
 
-        # --- TAB 3: FINANCIAL STATEMENTS ---
+        # --- TAB 3 ---
         with tab3:
             st.subheader(get_text("tab_financials", lang))
-            
-            # View Selector
             view_mode = st.radio(get_text("view_type", lang), [get_text("view_annual", lang), get_text("view_quarterly", lang)], horizontal=True)
-            
-            # Select Data Source based on toggle
             selected_data = data["annual"] if view_mode == get_text("view_annual", lang) else data["quarterly"]
             
-            # 1. Income Statement
             st.plotly_chart(plot_income_statement(selected_data['financials'], lang), use_container_width=True)
             st.divider()
-            
-            # 2. Balance Sheet
             st.plotly_chart(plot_balance_sheet(selected_data['balance_sheet'], lang), use_container_width=True)
             st.divider()
-            
-            # 3. Cash Flow
             c1, c2 = st.columns(2)
-            with c1:
-                st.plotly_chart(plot_cash_change(selected_data['cashflow'], lang), use_container_width=True)
-            with c2:
-                st.plotly_chart(plot_cashflow_breakdown(selected_data['cashflow'], lang), use_container_width=True)
+            with c1: st.plotly_chart(plot_cash_change(selected_data['cashflow'], lang), use_container_width=True)
+            with c2: st.plotly_chart(plot_cashflow_breakdown(selected_data['cashflow'], lang), use_container_width=True)
 
     else:
         st.info("👈 Enter a ticker to begin.")
