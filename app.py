@@ -321,9 +321,10 @@ def plot_scenario_cagr(bear, base, bull, title_text):
     fig.update_layout(title=title_text, height=300, template="plotly_dark")
     return fig
 
-# --- NEW PLOTS FOR TAB 3 ---
+# --- PLOTS FOR TAB 3 ---
 
 def plot_income_statement(df, lang):
+    """Bar chart (Histogram style) for Revenue, Gross, Operating, Net."""
     if df.empty: return go.Figure()
     fig = go.Figure()
     
@@ -497,7 +498,7 @@ def main():
                 eps_df = pd.DataFrame({"Year": full_years, "EPS": [f"${e:.2f}" for e in eps_curve]})
                 st.dataframe(eps_df, use_container_width=True)
 
-        # --- TAB 2 (MODIFIED STEP 1) ---
+        # --- TAB 2 ---
         with tab2:
             st.subheader(get_text("tab_cagr", lang))
             
@@ -516,7 +517,7 @@ def main():
 
             st.divider()
 
-            # --- Step 1: Base Assumptions (EDITED) ---
+            # Step 1
             st.write(f"#### {get_text('step1', lang)}")
             col_b1, col_b2, col_b3 = st.columns(3)
             with col_b1:
@@ -530,15 +531,12 @@ def main():
                 st.metric(get_text("input_base_ni", lang), f"${base_net_income:,.2f}B")
 
             c1, c2, c3 = st.columns(3)
-            with c1: 
-                rev_growth = st.number_input(get_text("rev_growth", lang), value=10.0) / 100
+            with c1: rev_growth = st.number_input(get_text("rev_growth", lang), value=10.0) / 100
             
-            # --- MODIFICATION HERE: Share Change Removed, Current Price Added ---
-            with c2: 
-                st.metric(get_text("current_price", lang), format_currency(data["current_price"]))
+            # --- MODIFICATION: Current Price Metric ---
+            with c2: st.metric(get_text("current_price", lang), format_currency(data["current_price"]))
             
-            with c3:
-                st.metric(get_text("years_label", lang), f"5 ({target_year})")
+            with c3: st.metric(get_text("years_label", lang), f"5 ({target_year})")
 
             st.divider()
 
@@ -558,7 +556,7 @@ def main():
             st.write(f"#### {get_text('step3', lang)}")
             pe_col1, pe_col2, pe_col3 = st.columns(3)
             
-            # Assuming constant shares since input was removed
+            # Shares constant
             fut_shares = data["shares_outstanding"] 
             if fut_shares == 0: fut_shares = 1
             
@@ -582,7 +580,7 @@ def main():
             st.divider()
             st.plotly_chart(plot_scenario_cagr(cagrs[0], cagrs[1], cagrs[2], get_text("cagr_title", lang)), use_container_width=True)
 
-        # --- TAB 3 ---
+        # --- TAB 3 (UPDATED LAYOUT) ---
         with tab3:
             st.subheader(get_text("tab_financials", lang))
             view_mode = st.radio(get_text("view_type", lang), [get_text("view_annual", lang), get_text("view_quarterly", lang)], horizontal=True)
@@ -590,11 +588,15 @@ def main():
             
             st.plotly_chart(plot_income_statement(selected_data['financials'], lang), use_container_width=True)
             st.divider()
+            
+            # Balance Sheet - Full Width
             st.plotly_chart(plot_balance_sheet(selected_data['balance_sheet'], lang), use_container_width=True)
             st.divider()
-            c1, c2 = st.columns(2)
-            with c1: st.plotly_chart(plot_cash_change(selected_data['cashflow'], lang), use_container_width=True)
-            with c2: st.plotly_chart(plot_cashflow_breakdown(selected_data['cashflow'], lang), use_container_width=True)
+            
+            # Cash Flow Plots - Full Width (Stacked)
+            st.plotly_chart(plot_cash_change(selected_data['cashflow'], lang), use_container_width=True)
+            st.divider() # Optional divider between CF charts
+            st.plotly_chart(plot_cashflow_breakdown(selected_data['cashflow'], lang), use_container_width=True)
 
     else:
         st.info("👈 Enter a ticker to begin.")
