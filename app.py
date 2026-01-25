@@ -490,13 +490,13 @@ def main():
                 val = input_eps * ((1 + growth_rate) ** diff)
                 eps_curve.append(val)
                 
-            col_chart, col_table = st.columns([2, 1])
-            with col_chart:
-                st.plotly_chart(plot_eps_projection(full_years, eps_curve, get_text("eps_table", lang), current_year), use_container_width=True)
-            with col_table:
-                st.write(f"**{get_text('proj_table', lang)}**")
-                eps_df = pd.DataFrame({"Year": full_years, "EPS": [f"${e:.2f}" for e in eps_curve]})
-                st.dataframe(eps_df, use_container_width=True)
+            # --- MODIFIED: Full width EPS chart ---
+            st.plotly_chart(plot_eps_projection(full_years, eps_curve, get_text("eps_table", lang), current_year), use_container_width=True)
+            
+            st.divider()
+            st.write(f"**{get_text('proj_table', lang)}**")
+            eps_df = pd.DataFrame({"Year": full_years, "EPS": [f"${e:.2f}" for e in eps_curve]})
+            st.dataframe(eps_df, use_container_width=True)
 
         # --- TAB 2 ---
         with tab2:
@@ -533,7 +533,6 @@ def main():
             c1, c2, c3 = st.columns(3)
             with c1: rev_growth = st.number_input(get_text("rev_growth", lang), value=10.0) / 100
             
-            # --- MODIFICATION: Current Price Metric ---
             with c2: st.metric(get_text("current_price", lang), format_currency(data["current_price"]))
             
             with c3: st.metric(get_text("years_label", lang), f"5 ({target_year})")
@@ -556,7 +555,6 @@ def main():
             st.write(f"#### {get_text('step3', lang)}")
             pe_col1, pe_col2, pe_col3 = st.columns(3)
             
-            # Shares constant
             fut_shares = data["shares_outstanding"] 
             if fut_shares == 0: fut_shares = 1
             
@@ -580,22 +578,22 @@ def main():
             st.divider()
             st.plotly_chart(plot_scenario_cagr(cagrs[0], cagrs[1], cagrs[2], get_text("cagr_title", lang)), use_container_width=True)
 
-        # --- TAB 3 (UPDATED LAYOUT) ---
+        # --- TAB 3 (FULL WIDTH GRAPHS) ---
         with tab3:
             st.subheader(get_text("tab_financials", lang))
             view_mode = st.radio(get_text("view_type", lang), [get_text("view_annual", lang), get_text("view_quarterly", lang)], horizontal=True)
             selected_data = data["annual"] if view_mode == get_text("view_annual", lang) else data["quarterly"]
             
+            # Full width charts - no columns
             st.plotly_chart(plot_income_statement(selected_data['financials'], lang), use_container_width=True)
             st.divider()
             
-            # Balance Sheet - Full Width
             st.plotly_chart(plot_balance_sheet(selected_data['balance_sheet'], lang), use_container_width=True)
             st.divider()
             
-            # Cash Flow Plots - Full Width (Stacked)
             st.plotly_chart(plot_cash_change(selected_data['cashflow'], lang), use_container_width=True)
-            st.divider() # Optional divider between CF charts
+            st.divider() 
+            
             st.plotly_chart(plot_cashflow_breakdown(selected_data['cashflow'], lang), use_container_width=True)
 
     else:
