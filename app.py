@@ -64,7 +64,8 @@ TRANSLATIONS = {
         "input_base_margin": "Base Net Margin (%)",
         "input_base_ni": "Base Net Income ($B)",
         "inc_stmt_title": "Income Statement Trends",
-        "bs_title": "Balance Sheet: Assets vs. Liabilities",
+        "bs_title": "Balance Sheet: Assets, Liabilities & Equity",
+        "lev_title": "Financial Leverage (Liabilities / Equity)",
         "cf_change_title": "Change in Cash Position",
         "cf_breakdown_title": "Cash Flow Breakdown (Op/Inv/Fin)",
         "metric_rev": "Total Revenue",
@@ -73,6 +74,8 @@ TRANSLATIONS = {
         "metric_ni": "Net Income",
         "assets": "Total Assets",
         "liabilities": "Total Liabilities",
+        "equity": "Total Equity",
+        "leverage_ratio": "Leverage Ratio",
         "cf_op": "Operating",
         "cf_inv": "Investing",
         "cf_fin": "Financing",
@@ -129,7 +132,8 @@ TRANSLATIONS = {
         "input_base_margin": "שולי רווח בסיס (%)",
         "input_base_ni": "רווח נקי בסיס ($B)",
         "inc_stmt_title": "מגמות דוח רווח והפסד",
-        "bs_title": "מאזן: נכסים מול התחייבויות",
+        "bs_title": "מאזן: נכסים, התחייבויות והון עצמי",
+        "lev_title": "מנוף פיננסי (התחייבויות / הון עצמי)",
         "cf_change_title": "שינוי במזומנים",
         "cf_breakdown_title": "פירוט תזרים מזומנים (שוטף/השקעה/מימון)",
         "metric_rev": "הכנסות",
@@ -138,6 +142,8 @@ TRANSLATIONS = {
         "metric_ni": "רווח נקי",
         "assets": "סך נכסים",
         "liabilities": "סך התחייבויות",
+        "equity": "הון עצמי",
+        "leverage_ratio": "יחס מינוף",
         "cf_op": "פעילות שוטפת",
         "cf_inv": "פעילות השקעה",
         "cf_fin": "פעילות מימון",
@@ -357,12 +363,57 @@ def plot_balance_sheet(df, lang):
     x_vals = df.index if 'Quarter' not in str(type(df.index)) else df.index.astype(str)
     
     fig = go.Figure()
+    
+    # 1. Assets
     if assets_col in df.columns:
         fig.add_trace(go.Bar(x=x_vals, y=df[assets_col]/1e9, name=get_text('assets', lang), marker_color='#636EFA'))
+    
+    # 2. Liabilities
     if liab_col in df.columns:
         fig.add_trace(go.Bar(x=x_vals, y=df[liab_col]/1e9, name=get_text('liabilities', lang), marker_color='#EF553B'))
+    
+    # 3. Equity (Assets - Liabilities)
+    if assets_col in df.columns and liab_col in df.columns:
+        equity_series = df[assets_col] - df[liab_col]
+        fig.add_trace(go.Bar(x=x_vals, y=equity_series/1e9, name=get_text('equity', lang), marker_color='#00CC96'))
         
     fig.update_layout(title=get_text('bs_title', lang), height=400, barmode='group', template="plotly_dark", yaxis_title="Billions ($)")
+    return fig
+
+def plot_financial_leverage(df, lang):
+    """Calculates and plots Financial Leverage: Liabilities / Equity"""
+    if df.empty: return go.Figure()
+    
+    assets_col = 'Total Assets'
+    liab_col = 'Total Liabilities Net Minority Interest'
+    if liab_col not in df.columns: liab_col = 'Total Liabilities' 
+    
+    if assets_col not in df.columns or liab_col not in df.columns:
+        return go.Figure()
+    
+    # Calculate Equity first
+    equity_series = df[assets_col] - df[liab_col]
+    
+    # Calculate Leverage (Liabilities / Equity)
+    # Avoid division by zero
+    leverage_series = df[liab_col] / equity_series.replace(0, 1)
+    
+    x_vals = df.index if 'Quarter' not in str(type(df.index)) else df.index.astype(str)
+    
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=x_vals, 
+        y=leverage_series, 
+        name=get_text('leverage_ratio', lang), 
+        marker_color='#AB63FA' # Purple to distinguish from pure money charts
+    ))
+    
+    fig.update_layout(
+        title=get_text('lev_title', lang), 
+        height=350, 
+        template="plotly_dark", 
+        yaxis_title="Ratio"
+    )
     return fig
 
 def plot_cash_change(df, lang):
@@ -589,6 +640,10 @@ def main():
             st.divider()
             
             st.plotly_chart(plot_balance_sheet(selected_data['balance_sheet'], lang), use_container_width=True)
+            st.divider()
+            
+            # --- NEW GRAPH: Financial Leverage ---
+            st.plotly_chart(plot_financial_leverage(selected_data['balance_sheet'], lang), use_container_width=True)
             st.divider()
             
             st.plotly_chart(plot_cash_change(selected_data['cashflow'], lang), use_container_width=True)
